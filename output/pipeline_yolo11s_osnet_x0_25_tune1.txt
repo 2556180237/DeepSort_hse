@@ -1,0 +1,13 @@
+Detector: yolo11s
+REID: osnet_x0_25
+Params: {"conf_threshold": 0.2, "nms_max_overlap": 1.0, "max_cosine_distance": 0.3, "nn_budget": 100, "max_age": 50, "n_init": 2, "max_iou_distance": 0.7}
+
+Video                HOTA     DetJ     AssA     MOTA     IDF1      FPS
+----------------------------------------------------------------
+TUD-Campus           8.84    44.10     1.77    18.11    50.11     2.68
+TUD-Stadtmitte       7.18    68.07     0.76    74.91    77.47     2.71
+KITTI-17             6.88    48.07     0.99    32.10    58.77     3.18
+PETS09-S2L1          5.04    78.72     0.32    83.59    71.60     2.78
+MOT16-09             3.64    36.87     0.36    37.53    51.36     2.08
+MOT16-11             4.45    39.00     0.51    39.80    56.43     1.88
+AVERAGE              6.01    52.47     0.78    47.67    60.96     2.55

@@ -80,7 +80,8 @@ def gather_sequence_info(sequence_dir):
 
 def run(sequence_dir, detector_name, output_file, device="cpu",
         conf_threshold=0.3, nms_max_overlap=1.0, max_cosine_distance=0.2,
-        nn_budget=100, reid_name=None):
+        nn_budget=100, reid_name=None, max_age=30, n_init=3,
+        max_iou_distance=0.7):
     """Run DeepSORT with a live detector on a sequence.
 
     Parameters
@@ -103,6 +104,12 @@ def run(sequence_dir, detector_name, output_file, device="cpu",
         Appearance descriptor gallery size.
     reid_name : str or None
         REID model name. If None, uses random features (baseline behavior).
+    max_age : int
+        Maximum number of missed detections before a track is deleted.
+    n_init : int
+        Number of consecutive detections before a track is confirmed.
+    max_iou_distance : float
+        IoU distance threshold for matching cascade.
     """
     seq_info = gather_sequence_info(sequence_dir)
     seq_name = seq_info["sequence_name"]
@@ -127,7 +134,8 @@ def run(sequence_dir, detector_name, output_file, device="cpu",
 
     metric = nn_matching.NearestNeighborDistanceMetric(
         "cosine", max_cosine_distance, nn_budget)
-    tracker = Tracker(metric)
+    tracker = Tracker(metric, max_iou_distance=max_iou_distance,
+                      max_age=max_age, n_init=n_init)
     results = []
 
     np.random.seed(42)
@@ -219,6 +227,9 @@ def parse_args():
     parser.add_argument("--nms_max_overlap", type=float, default=1.0)
     parser.add_argument("--max_cosine_distance", type=float, default=0.2)
     parser.add_argument("--nn_budget", type=int, default=100)
+    parser.add_argument("--max_age", type=int, default=30)
+    parser.add_argument("--n_init", type=int, default=3)
+    parser.add_argument("--max_iou_distance", type=float, default=0.7)
     parser.add_argument("--reid", help="REID model name", default=None)
     parser.add_argument("--all", action="store_true", help="Run on all videos")
     parser.add_argument("--list_detectors", action="store_true", help="List available detectors")
@@ -243,6 +254,9 @@ if __name__ == "__main__":
                 nms_max_overlap=args.nms_max_overlap,
                 max_cosine_distance=args.max_cosine_distance,
                 nn_budget=args.nn_budget,
+                max_age=args.max_age,
+                n_init=args.n_init,
+                max_iou_distance=args.max_iou_distance,
                 reid_name=args.reid)
     elif args.sequence_dir:
         suffix = f"{args.detector}_{args.reid}" if args.reid else args.detector
@@ -253,6 +267,9 @@ if __name__ == "__main__":
             nms_max_overlap=args.nms_max_overlap,
             max_cosine_distance=args.max_cosine_distance,
             nn_budget=args.nn_budget,
+            max_age=args.max_age,
+            n_init=args.n_init,
+            max_iou_distance=args.max_iou_distance,
             reid_name=args.reid)
     else:
         print("Specify --sequence_dir or --all. Use --list_detectors to see options.")
