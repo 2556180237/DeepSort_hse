@@ -1,0 +1,8 @@
+REID Model: osnet_x0_25
+Device: cpu
+Max cosine distance: 0.2
+
+Video                HOTA     DetJ     AssA     MOTA     IDF1      FPS
+------------------------------------------------------------
+TUD-Campus          14.14    93.97     2.13    94.43    97.17     4.32
+AVERAGE             14.14    93.97     2.13    94.43    97.17     4.32

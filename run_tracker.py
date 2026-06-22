@@ -28,6 +28,7 @@ from deep_sort import nn_matching
 from deep_sort.detection import Detection
 from deep_sort.tracker import Tracker
 from detectors import create_detector, list_detectors
+from reid import create_reid, list_reid_models
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 VIDEOS_DIR = os.path.join(BASE_DIR, "videos")
@@ -79,7 +80,7 @@ def gather_sequence_info(sequence_dir):
 
 def run(sequence_dir, detector_name, output_file, device="cpu",
         conf_threshold=0.3, nms_max_overlap=1.0, max_cosine_distance=0.2,
-        nn_budget=100, feature_dim=128):
+        nn_budget=100, reid_name=None):
     """Run DeepSORT with a live detector on a sequence.
 
     Parameters
@@ -100,8 +101,8 @@ def run(sequence_dir, detector_name, output_file, device="cpu",
         Cosine distance gating threshold.
     nn_budget : int or None
         Appearance descriptor gallery size.
-    feature_dim : int
-        Feature vector dimension (placeholder until REID model is integrated).
+    reid_name : str or None
+        REID model name. If None, uses random features (baseline behavior).
     """
     seq_info = gather_sequence_info(sequence_dir)
     seq_name = seq_info["sequence_name"]
@@ -109,12 +110,20 @@ def run(sequence_dir, detector_name, output_file, device="cpu",
     print(f"Sequence: {seq_name}")
     print(f"Frames: {seq_info['min_frame_idx']}..{seq_info['max_frame_idx']}")
     print(f"Detector: {detector_name} (device={device})")
+    print(f"REID: {reid_name or 'random_features'}")
 
     detector = create_detector(detector_name, device=device,
                                conf_threshold=conf_threshold)
     print(f"Loading detector: {detector}")
     detector.load_model()
     print("Detector loaded.")
+
+    reid_model = None
+    if reid_name is not None:
+        reid_model = create_reid(reid_name, device=device)
+        print(f"Loading REID: {reid_model}")
+        reid_model.load_model()
+        print("REID loaded.")
 
     metric = nn_matching.NearestNeighborDistanceMetric(
         "cosine", max_cosine_distance, nn_budget)
@@ -136,10 +145,15 @@ def run(sequence_dir, detector_name, output_file, device="cpu",
 
         det_results = detector.detect(image)
 
+        boxes = [dr.bbox for dr in det_results]
+        if reid_model is not None and len(boxes) > 0:
+            features = reid_model.extract_features(image, boxes)
+        else:
+            features = [np.random.rand(128).astype(np.float32) for _ in boxes]
+
         detections = []
-        for dr in det_results:
-            feature = np.random.rand(feature_dim).astype(np.float32)
-            detections.append(Detection(dr.bbox, dr.confidence, feature))
+        for dr, feat in zip(det_results, features):
+            detections.append(Detection(dr.bbox, dr.confidence, feat))
 
         boxes = np.array([d.tlwh for d in detections])
         if len(boxes) > 0:
@@ -172,7 +186,7 @@ def run(sequence_dir, detector_name, output_file, device="cpu",
     return fps
 
 
-def run_all(detector_name, device="cpu", conf_threshold=0.3, **kwargs):
+def run_all(detector_name, device="cpu", conf_threshold=0.3, reid_name=None, **kwargs):
     """Run tracker on all 6 test videos."""
     sequences = ["TUD-Campus", "TUD-Stadtmitte", "KITTI-17",
                  "PETS09-S2L1", "MOT16-09", "MOT16-11"]
@@ -183,9 +197,10 @@ def run_all(detector_name, device="cpu", conf_threshold=0.3, **kwargs):
         if not os.path.isdir(seq_dir):
             print(f"SKIP: {seq_dir} not found")
             continue
-        output_file = os.path.join(OUTPUT_DIR, f"{seq}_{detector_name}.txt")
+        suffix = f"{detector_name}_{reid_name}" if reid_name else detector_name
+        output_file = os.path.join(OUTPUT_DIR, f"{seq}_{suffix}.txt")
         fps = run(seq_dir, detector_name, output_file, device=device,
-                  conf_threshold=conf_threshold, **kwargs)
+                  conf_threshold=conf_threshold, reid_name=reid_name, **kwargs)
         all_fps.append(fps)
 
     print(f"\n{'='*60}")
@@ -204,8 +219,10 @@ def parse_args():
     parser.add_argument("--nms_max_overlap", type=float, default=1.0)
     parser.add_argument("--max_cosine_distance", type=float, default=0.2)
     parser.add_argument("--nn_budget", type=int, default=100)
+    parser.add_argument("--reid", help="REID model name", default=None)
     parser.add_argument("--all", action="store_true", help="Run on all videos")
     parser.add_argument("--list_detectors", action="store_true", help="List available detectors")
+    parser.add_argument("--list_reid", action="store_true", help="List available REID models")
     return parser.parse_args()
 
 
@@ -216,19 +233,26 @@ if __name__ == "__main__":
         print("Available detectors:", list_detectors())
         exit(0)
 
+    if args.list_reid:
+        print("Available REID models:", list_reid_models())
+        exit(0)
+
     if args.all:
         run_all(args.detector, device=args.device,
                 conf_threshold=args.conf_threshold,
                 nms_max_overlap=args.nms_max_overlap,
                 max_cosine_distance=args.max_cosine_distance,
-                nn_budget=args.nn_budget)
+                nn_budget=args.nn_budget,
+                reid_name=args.reid)
     elif args.sequence_dir:
+        suffix = f"{args.detector}_{args.reid}" if args.reid else args.detector
         output_file = args.output_file or os.path.join(
-            OUTPUT_DIR, f"{os.path.basename(args.sequence_dir)}_{args.detector}.txt")
+            OUTPUT_DIR, f"{os.path.basename(args.sequence_dir)}_{suffix}.txt")
         run(args.sequence_dir, args.detector, output_file, device=args.device,
             conf_threshold=args.conf_threshold,
             nms_max_overlap=args.nms_max_overlap,
             max_cosine_distance=args.max_cosine_distance,
-            nn_budget=args.nn_budget)
+            nn_budget=args.nn_budget,
+            reid_name=args.reid)
     else:
         print("Specify --sequence_dir or --all. Use --list_detectors to see options.")
