@@ -1,0 +1,17 @@
+Body REID Evaluation
+REID: osnet_x0_25
+Params: {"distance_threshold": 0.2, "temporal_window": 30, "min_votes": 1, "use_centroid": true, "max_descriptors": 50, "conflict_strategy": "reset"}
+
+=== Clustering Metrics (offline) ===
+Video                 FMI   Silhouette         CH   Purity   GT IDs   Clusters
+TUD-Campus         0.7899       0.4795      65.41   0.9415        8         11
+TUD-Stadtmitte     0.7039       0.4278      84.59   0.8936       10         28
+PETS09-S2L1        0.5089       0.2169     105.51   0.7568       19         79
+MOT16-09           0.5584       0.3031      72.88   0.8188       43        262
+
+=== IdentityManager Metrics (online) ===
+Video                 FMI   Purity  InvPurity   GT IDs   Assigned   Identities
+TUD-Campus         0.8754   1.0000     0.8663        8         11           15
+TUD-Stadtmitte     0.7723   0.9663     0.6920       10         25           39
+PETS09-S2L1        0.5672   0.7634     0.6256       19         41          148
+MOT16-09           0.7070   0.8460     0.6083       43        136          409
